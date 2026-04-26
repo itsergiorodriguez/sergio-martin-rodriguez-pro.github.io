@@ -1,0 +1,2956 @@
+<!DOCTYPE html>
+<!--
+═══════════════════════════════════════════════════════════════════════
+  PORTFOLIO INTERACTIVO - SERGIO MARTÍN RODRÍGUEZ
+  Técnico Electromecánico + Full Stack Developer
+  ───────────────────────────────────────────────────────────────────
+  INSTRUCCIONES DE USO:
+  1. Guardar este archivo como 'index.html' (o cualquier nombre .html)
+  2. Abrir directamente en cualquier navegador moderno (Chrome, Firefox, Edge)
+  3. No requiere servidor ni instalación. Todo está embebido.
+  4. Three.js se carga desde CDN (requiere conexión a internet la 1era vez).
+  ───────────────────────────────────────────────────────────────────
+  CARACTERÍSTICAS:
+  - Hero con escena 3D Three.js (compresor frigorífico + código)
+  - Modo Técnico / Modo Desarrollador (cambia paleta)
+  - Timeline interactiva de experiencia
+  - Panel de control de habilidades estilo industrial
+  - Terminal interactiva al final (comandos: help, skills, experience, contact, etc.)
+  - Easter eggs ocultos (clic en el engranaje del header)
+  - Sonidos sintetizados con Web Audio API
+  - 100% responsive
+═══════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sergio M. Rodríguez // Sistema v2.0</title>
+
+<!-- Fuentes: monoespaciada técnica + sans-serif moderna -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Three.js desde CDN para escena 3D del Hero -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   VARIABLES DE TEMA - Permite cambiar entre modos dinámicamente
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-primary: #08090d;
+  --bg-secondary: #0f1218;
+  --bg-tertiary: #161a23;
+  --accent-cyan: #00e5ff;
+  --accent-blue: #2979ff;
+  --accent-amber: #ffa726;
+  --accent-orange: #ff6b35;
+  --text-primary: #e8eef5;
+  --text-secondary: #8a96a8;
+  --text-dim: #4a5568;
+  --grid-color: rgba(0, 229, 255, 0.06);
+  --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.5), 0 0 40px rgba(0, 229, 255, 0.2);
+  --glow-amber: 0 0 20px rgba(255, 167, 38, 0.5), 0 0 40px rgba(255, 167, 38, 0.2);
+  --primary-glow: var(--accent-cyan);
+}
+
+/* Modo Técnico: tonos ámbar/naranja industriales */
+body.mode-tecnico {
+  --accent-cyan: #ffa726;
+  --accent-blue: #ff6b35;
+  --primary-glow: #ffa726;
+  --grid-color: rgba(255, 167, 38, 0.06);
+  --glow-cyan: 0 0 20px rgba(255, 167, 38, 0.5), 0 0 40px rgba(255, 167, 38, 0.2);
+}
+
+/* Modo Desarrollador: tonos cian/azul digitales (default) */
+body.mode-dev { /* uses default */ }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Rajdhani', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  min-height: 100vh;
+  line-height: 1.6;
+  cursor: default;
+  transition: background 0.6s ease;
+}
+
+/* Cuadrícula de fondo tipo blueprint industrial */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events: none;
+  z-index: 1;
+  transition: background-image 0.6s ease;
+}
+
+/* Viñeta para profundidad */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ═══════════════════════════════════════════════════════════
+   HUD SUPERIOR - Barra de estado tipo panel de control
+   ═══════════════════════════════════════════════════════════ */
+.hud-top {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: rgba(8, 9, 13, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  z-index: 100;
+  padding: 12px 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+}
+
+.hud-top-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hud-left { display: flex; align-items: center; gap: 16px; }
+
+.hud-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-glow);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.hud-gear {
+  width: 22px; height: 22px;
+  animation: spin 8s linear infinite;
+  filter: drop-shadow(0 0 4px var(--primary-glow));
+  transition: transform 0.2s;
+}
+.hud-gear:hover { animation-duration: 1.5s; }
+
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+.hud-status {
+  display: flex; gap: 10px; align-items: center;
+  color: var(--text-secondary);
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 8px #00ff88;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.hud-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.mode-btn {
+  background: transparent;
+  border: 1px solid rgba(138, 150, 168, 0.3);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.mode-btn:hover { border-color: var(--primary-glow); color: var(--primary-glow); }
+.mode-btn.active {
+  background: var(--primary-glow);
+  color: var(--bg-primary);
+  border-color: var(--primary-glow);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO SECTION - Sección de impacto inicial con escena 3D
+   ═══════════════════════════════════════════════════════════ */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px 40px;
+  overflow: hidden;
+  z-index: 5;
+}
+
+#hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 10;
+  max-width: 1100px;
+  width: 100%;
+  text-align: center;
+}
+
+.hero-tag {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--primary-glow);
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  margin-bottom: 20px;
+  opacity: 0;
+  animation: fadeUp 0.8s 0.2s forwards;
+}
+
+.hero-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.5rem, 8vw, 6rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  margin-bottom: 24px;
+  position: relative;
+  display: inline-block;
+}
+.hero-name span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(40px);
+  animation: assemble 0.6s forwards;
+}
+
+@keyframes assemble {
+  0% { opacity: 0; transform: translateY(40px) rotateX(-90deg); }
+  60% { opacity: 1; transform: translateY(-5px) rotateX(10deg); }
+  100% { opacity: 1; transform: translateY(0) rotateX(0); }
+}
+
+/* Glitch effect on hover */
+.hero-name:hover { animation: glitch 0.4s infinite; }
+@keyframes glitch {
+  0%,100% { text-shadow: 0 0 0 transparent; }
+  25% { text-shadow: 2px 0 var(--accent-cyan), -2px 0 var(--accent-orange); }
+  50% { text-shadow: -2px 0 var(--accent-cyan), 2px 0 var(--accent-orange); transform: translateX(2px); }
+  75% { text-shadow: 2px 2px var(--accent-blue); transform: translateX(-2px); }
+}
+
+.hero-name .accent {
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 14px rgba(0, 229, 255, 0.4));
+}
+
+.hero-rotator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  color: var(--text-primary);
+  margin-bottom: 32px;
+  min-height: 2em;
+  opacity: 0;
+  animation: fadeUp 0.8s 1s forwards;
+}
+.hero-rotator::before { content: '> '; color: var(--primary-glow); }
+.hero-rotator .cursor {
+  display: inline-block;
+  background: var(--primary-glow);
+  width: 0.6em;
+  height: 1em;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.hero-meta {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+  opacity: 0;
+  animation: fadeUp 0.8s 1.4s forwards;
+}
+.hero-meta-item { display: flex; gap: 8px; align-items: center; }
+.hero-meta-item .dot { color: var(--primary-glow); }
+
+.hero-cta {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  opacity: 0;
+  animation: fadeUp 0.8s 1.7s forwards;
+}
+
+.cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--primary-glow);
+  border: 1px solid var(--primary-glow);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+.cta-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--primary-glow);
+  transform: translateX(-101%);
+  transition: transform 0.3s;
+  z-index: -1;
+}
+.cta-btn:hover {
+  color: var(--bg-primary);
+  box-shadow: var(--glow-cyan);
+}
+.cta-btn:hover::before { transform: translateX(0); }
+
+.cta-btn.primary {
+  background: var(--primary-glow);
+  color: var(--bg-primary);
+  box-shadow: var(--glow-cyan);
+}
+.cta-btn.primary::before { background: transparent; }
+.cta-btn.primary:hover {
+  background: transparent;
+  color: var(--primary-glow);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll indicator */
+.scroll-indicator {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.2em;
+  animation: bounce 2s infinite;
+  z-index: 10;
+}
+.scroll-indicator::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 30px;
+  background: linear-gradient(var(--primary-glow), transparent);
+  margin: 8px auto 0;
+}
+@keyframes bounce {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(8px); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECCIONES GENÉRICAS
+   ═══════════════════════════════════════════════════════════ */
+section {
+  position: relative;
+  z-index: 5;
+  padding: 100px 24px;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.section-header {
+  margin-bottom: 60px;
+  position: relative;
+}
+
+.section-tag {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--primary-glow);
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+.section-tag::before { content: '// '; opacity: 0.6; }
+
+.section-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  margin-bottom: 16px;
+}
+.section-title .accent { color: var(--primary-glow); }
+
+.section-line {
+  width: 60px;
+  height: 2px;
+  background: var(--primary-glow);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SOBRE MÍ
+   ═══════════════════════════════════════════════════════════ */
+.about-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+.about-text {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  line-height: 1.8;
+}
+.about-text p { margin-bottom: 20px; }
+.about-text .highlight {
+  color: var(--primary-glow);
+  font-weight: 600;
+}
+
+.about-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 30px;
+}
+.stat-card {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--primary-glow);
+}
+.stat-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-glow);
+}
+.stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* Símbolo unión: engranaje + </> */
+.fusion-symbol {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 320px;
+}
+.fusion-symbol svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.4));
+}
+.fusion-gear { animation: spin 12s linear infinite; transform-origin: center; }
+.fusion-gear-rev { animation: spin 12s linear infinite reverse; transform-origin: center; }
+
+/* ═══════════════════════════════════════════════════════════
+   TIMELINE EXPERIENCIA
+   ═══════════════════════════════════════════════════════════ */
+.timeline {
+  position: relative;
+  padding-left: 50px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 19px; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--primary-glow), transparent);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 50px;
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: all 0.7s ease;
+}
+.timeline-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.timeline-node {
+  position: absolute;
+  left: -42px;
+  top: 6px;
+  width: 18px; height: 18px;
+  background: var(--bg-primary);
+  border: 2px solid var(--primary-glow);
+  border-radius: 50%;
+  z-index: 2;
+  box-shadow: var(--glow-cyan);
+}
+.timeline-node::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: var(--primary-glow);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.timeline-card {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+.timeline-card:hover {
+  border-color: var(--primary-glow);
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.15);
+  transform: translateY(-3px);
+}
+
+/* Esquinas decorativas tipo HUD */
+.timeline-card::before,
+.timeline-card::after {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  border: 1px solid var(--primary-glow);
+}
+.timeline-card::before { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+.timeline-card::after { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+
+.tl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed rgba(138, 150, 168, 0.2);
+}
+
+.tl-title-block { flex: 1; min-width: 240px; }
+.tl-role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.tl-company {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+.tl-period {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--primary-glow);
+  padding: 4px 12px;
+  border: 1px solid var(--primary-glow);
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.tl-content {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.tl-illustration {
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tl-illustration svg { max-width: 100%; max-height: 100%; }
+
+.tl-tasks {
+  list-style: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+.tl-tasks li {
+  padding: 4px 0 4px 22px;
+  position: relative;
+  color: var(--text-primary);
+  transition: color 0.2s;
+}
+.tl-tasks li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--primary-glow);
+  font-weight: bold;
+}
+.tl-tasks li:hover { color: var(--primary-glow); }
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMACIONES TIMELINE - NH3, almacén, monitor CRT
+   ═══════════════════════════════════════════════════════════ */
+.nh3-mol .atom {
+  animation: float 3s ease-in-out infinite;
+}
+.nh3-mol .atom-h1 { animation-delay: 0s; }
+.nh3-mol .atom-h2 { animation-delay: 0.5s; }
+.nh3-mol .atom-h3 { animation-delay: 1s; }
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.nh3-mol .bond {
+  stroke-dasharray: 4 3;
+  animation: dash 1.5s linear infinite;
+}
+@keyframes dash { to { stroke-dashoffset: -14; } }
+
+.warehouse-cart {
+  animation: slide 4s linear infinite;
+}
+@keyframes slide {
+  0% { transform: translateX(-30px); opacity: 0; }
+  10%,90% { opacity: 1; }
+  100% { transform: translateX(120px); opacity: 0; }
+}
+.warehouse-cart-2 {
+  animation: slide 4s linear infinite 2s;
+}
+
+.crt-line {
+  animation: crt-scan 2s linear infinite;
+}
+@keyframes crt-scan {
+  0% { opacity: 0; transform: translateY(-30px); }
+  20%,80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(30px); }
+}
+.crt-text { animation: typing 3s steps(20) infinite; }
+@keyframes typing {
+  0%,30% { opacity: 0; }
+  40%,80% { opacity: 1; }
+  90%,100% { opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORMACIÓN
+   ═══════════════════════════════════════════════════════════ */
+.formation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.formation-card {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  padding: 30px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+.formation-card:hover {
+  border-color: var(--primary-glow);
+  transform: translateY(-4px);
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.15);
+}
+.formation-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--primary-glow), transparent);
+}
+
+.formation-icon {
+  width: 60px; height: 60px;
+  margin-bottom: 20px;
+}
+.formation-type {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--primary-glow);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.formation-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.formation-school {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.formation-school::before { content: '> '; color: var(--primary-glow); }
+
+.formation-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(138, 150, 168, 0.3);
+  color: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.tag:hover {
+  border-color: var(--primary-glow);
+  color: var(--primary-glow);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PANEL DE CONTROL DE HABILIDADES
+   ═══════════════════════════════════════════════════════════ */
+.skills-panel {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  padding: 36px;
+  position: relative;
+}
+.skills-panel::before, .skills-panel::after {
+  content: '';
+  position: absolute;
+  width: 30px; height: 30px;
+  border: 2px solid var(--primary-glow);
+}
+.skills-panel::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+.skills-panel::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+  border-bottom: 1px dashed rgba(0, 229, 255, 0.25);
+}
+.panel-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+  color: var(--primary-glow);
+}
+.panel-leds {
+  display: flex; gap: 8px;
+}
+.led {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.led.on {
+  background: var(--primary-glow);
+  box-shadow: 0 0 8px var(--primary-glow);
+  animation: pulse 1.8s infinite;
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.skill-group h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+.skill-group h4::before { content: '[ '; color: var(--primary-glow); }
+.skill-group h4::after { content: ' ]'; color: var(--primary-glow); }
+
+/* Medidores tipo industrial */
+.skill-bar {
+  margin-bottom: 18px;
+}
+.skill-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.skill-bar-name { color: var(--text-primary); }
+.skill-bar-pct { color: var(--primary-glow); }
+.skill-bar-track {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(138, 150, 168, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+.skill-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-glow), var(--accent-blue));
+  width: 0;
+  transition: width 1.5s cubic-bezier(0.65, 0, 0.35, 1);
+  box-shadow: 0 0 10px var(--primary-glow);
+  position: relative;
+}
+.skill-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 6px,
+    rgba(0,0,0,0.25) 6px,
+    rgba(0,0,0,0.25) 8px
+  );
+}
+
+/* Módulos de tecnología tipo circuito */
+.tech-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 14px;
+  margin-top: 30px;
+}
+.tech-module {
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  padding: 16px 12px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.tech-module:hover {
+  border-color: var(--primary-glow);
+  transform: translateY(-3px);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+}
+.tech-module::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 50%;
+  transform: translateX(-50%);
+  width: 30px; height: 2px;
+  background: var(--primary-glow);
+}
+.tech-module svg { width: 32px; height: 32px; margin-bottom: 8px; }
+.tech-module-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TERMINAL INTERACTIVA
+   ═══════════════════════════════════════════════════════════ */
+.terminal {
+  background: #050608;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.1);
+}
+.term-bar {
+  background: var(--bg-tertiary);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+}
+.term-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+}
+.term-dot.r { background: #ff5f57; }
+.term-dot.y { background: #ffbd2e; }
+.term-dot.g { background: #28ca42; }
+.term-bar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.term-body {
+  padding: 20px;
+  height: 380px;
+  overflow-y: auto;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #d0d8e0;
+}
+.term-body::-webkit-scrollbar { width: 8px; }
+.term-body::-webkit-scrollbar-track { background: #0a0c10; }
+.term-body::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.3); }
+
+.term-line { white-space: pre-wrap; word-break: break-word; }
+.term-line.input { color: var(--primary-glow); }
+.term-line.error { color: #ff6b6b; }
+.term-line.success { color: #51cf66; }
+.term-line.info { color: #ffd43b; }
+
+.term-input-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 20px 16px;
+}
+.term-prompt {
+  color: var(--primary-glow);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.term-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  caret-color: var(--primary-glow);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONTACTO
+   ═══════════════════════════════════════════════════════════ */
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.contact-info {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  padding: 32px;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px dashed rgba(138, 150, 168, 0.15);
+  transition: padding 0.2s;
+}
+.contact-row:last-child { border-bottom: none; }
+.contact-row:hover { padding-left: 8px; }
+
+.contact-icon {
+  width: 44px; height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--primary-glow);
+  border-radius: 4px;
+  position: relative;
+}
+.contact-icon::before, .contact-icon::after {
+  content: '';
+  position: absolute;
+  background: var(--primary-glow);
+  width: 6px; height: 1px;
+}
+.contact-icon::before { left: -7px; top: 50%; }
+.contact-icon::after { right: -7px; top: 50%; }
+.contact-icon svg { width: 22px; height: 22px; color: var(--primary-glow); }
+
+.contact-row-text { flex: 1; min-width: 0; }
+.contact-row-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.contact-row-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  word-break: break-all;
+  text-decoration: none;
+  display: block;
+  margin-top: 2px;
+}
+.contact-row-value:hover { color: var(--primary-glow); }
+
+/* Formulario */
+.contact-form {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.form-row { margin-bottom: 18px; }
+.form-row label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.form-row label::before { content: '> '; color: var(--primary-glow); }
+
+.form-row input,
+.form-row textarea {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(138, 150, 168, 0.3);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  padding: 12px 14px;
+  outline: none;
+  transition: border 0.2s;
+  resize: vertical;
+}
+.form-row textarea { min-height: 110px; }
+.form-row input:focus,
+.form-row textarea:focus {
+  border-color: var(--primary-glow);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+}
+
+.send-btn {
+  width: 100%;
+  padding: 14px;
+  background: transparent;
+  color: var(--primary-glow);
+  border: 1px solid var(--primary-glow);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.send-btn:hover {
+  background: var(--primary-glow);
+  color: var(--bg-primary);
+  box-shadow: var(--glow-cyan);
+}
+.send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Animación de pipa enviando datos */
+.pipe-anim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 9, 13, 0.9);
+  z-index: 10;
+}
+.pipe-anim.active { display: flex; }
+.pipe-anim svg { width: 80%; max-width: 400px; }
+.pipe-confirm {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--primary-glow);
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════════ */
+footer {
+  position: relative;
+  z-index: 5;
+  text-align: center;
+  padding: 40px 24px 30px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  border-top: 1px solid rgba(0, 229, 255, 0.1);
+  margin-top: 60px;
+}
+footer .footer-line { color: var(--primary-glow); margin-bottom: 6px; letter-spacing: 0.2em; }
+
+/* ═══════════════════════════════════════════════════════════
+   EASTER EGG MODAL
+   ═══════════════════════════════════════════════════════════ */
+.egg-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.egg-modal.active { display: flex; }
+.egg-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--primary-glow);
+  padding: 40px 50px;
+  max-width: 500px;
+  text-align: center;
+  position: relative;
+  box-shadow: var(--glow-cyan);
+  animation: eggIn 0.4s;
+}
+@keyframes eggIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.egg-content h3 {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--primary-glow);
+  margin-bottom: 16px;
+  letter-spacing: 0.15em;
+}
+.egg-content p { color: var(--text-primary); line-height: 1.7; }
+.egg-close {
+  position: absolute;
+  top: 10px; right: 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .about-grid { grid-template-columns: 1fr; gap: 40px; }
+  .formation-grid { grid-template-columns: 1fr; }
+  .skills-grid { grid-template-columns: 1fr; gap: 30px; }
+  .contact-grid { grid-template-columns: 1fr; }
+  .tl-content { grid-template-columns: 1fr; }
+  .tl-illustration { height: 100px; }
+  .hud-top-inner { gap: 8px; }
+  .hud-status { display: none; }
+  section { padding: 70px 18px; }
+  .hero { padding: 100px 18px 60px; }
+}
+
+@media (max-width: 560px) {
+  .hud-top { padding: 10px 14px; font-size: 0.7rem; }
+  .mode-btn { padding: 4px 8px; font-size: 0.65rem; }
+  .hero-meta { gap: 12px; font-size: 0.78rem; }
+  .timeline { padding-left: 36px; }
+  .timeline::before { left: 13px; }
+  .timeline-node { left: -30px; width: 14px; height: 14px; }
+  .formation-card, .skills-panel, .contact-info, .contact-form, .timeline-card { padding: 22px; }
+  .term-body { height: 320px; padding: 14px; font-size: 0.8rem; }
+  .about-stats { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOTONES SOCIALES FLOTANTES (lateral derecho)
+   ═══════════════════════════════════════════════════════════ */
+.social-rail {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 90;
+}
+.social-rail::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  bottom: -30px;
+  width: 1px;
+  background: linear-gradient(transparent, var(--primary-glow), transparent);
+  opacity: 0.4;
+  z-index: -1;
+}
+.social-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all 0.3s;
+  position: relative;
+}
+.social-btn::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+.social-btn:hover {
+  color: var(--primary-glow);
+  border-color: var(--primary-glow);
+  transform: translateX(-3px);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
+}
+.social-btn svg { width: 20px; height: 20px; }
+.social-btn .tip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--primary-glow);
+  padding: 4px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--primary-glow);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.social-btn:hover .tip { opacity: 1; }
+@media (max-width: 900px) {
+  .social-rail {
+    right: 12px;
+    gap: 10px;
+  }
+  .social-btn { width: 38px; height: 38px; }
+  .social-btn svg { width: 17px; height: 17px; }
+  .social-btn .tip { display: none; }
+}
+
+/* CTA con icono de GitHub en hero */
+.cta-btn svg { width: 18px; height: 18px; }
+
+/* Selección personalizada */
+::selection { background: var(--primary-glow); color: var(--bg-primary); }
+
+/* Accesibilidad: respetar preferencia de movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body class="mode-dev">
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTONES SOCIALES FLOTANTES (lateral derecho)
+     ⚠ EDITAR: reemplazá TU_USUARIO_GITHUB con tu usuario real
+     ═══════════════════════════════════════════════════════════ -->
+<div class="social-rail">
+  <a href="https://linkedin.com/in/sergio-martin-rodriguez-pro"
+     target="_blank" rel="noopener"
+     class="social-btn"
+     aria-label="LinkedIn">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+    </svg>
+    <span class="tip">LinkedIn</span>
+  </a>
+  <a href="https://github.com/TU_USUARIO_GITHUB/sergio-martin-rodriguez.github.io"
+     target="_blank" rel="noopener"
+     class="social-btn"
+     aria-label="GitHub - Código fuente">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+    </svg>
+    <span class="tip">GitHub</span>
+  </a>
+  <a href="mailto:it.sergiorodriguez@gmail.com"
+     class="social-btn"
+     aria-label="Email">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+    <span class="tip">Email</span>
+  </a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HUD SUPERIOR - Barra de control persistente
+     ═══════════════════════════════════════════════════════════ -->
+<header class="hud-top">
+  <div class="hud-top-inner">
+    <div class="hud-left">
+      <div class="hud-logo" id="logo-easter">
+        <!-- Engranaje SVG (clic = easter egg) -->
+        <svg class="hud-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v6m0 10v6m11-11h-6m-10 0H1m17.07-7.07l-4.24 4.24m-5.66 5.66l-4.24 4.24m12.14 0l-4.24-4.24m-5.66-5.66L4.93 4.93"/>
+        </svg>
+        <span>SMR_SYS</span>
+      </div>
+      <div class="hud-status">
+        <span class="status-dot"></span>
+        <span id="status-text">SISTEMA ACTIVO</span>
+      </div>
+    </div>
+    <div class="hud-right">
+      <button class="mode-btn active" data-mode="dev">[ MODO DEV ]</button>
+      <button class="mode-btn" data-mode="tecnico">[ MODO TÉCNICO ]</button>
+      <button class="mode-btn" id="sound-btn">[ AUDIO: ON ]</button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HERO SECTION - Impacto inicial con Three.js
+     ═══════════════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-content">
+    <div class="hero-tag">// SISTEMA INICIALIZADO · v2.0</div>
+    <h1 class="hero-name" id="hero-name"></h1>
+    <div class="hero-rotator">
+      <span id="rotator-text"></span><span class="cursor"></span>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-meta-item"><span class="dot">◆</span> Villa Mercedes, San Luis · AR</div>
+      <div class="hero-meta-item"><span class="dot">◆</span> Disponible</div>
+      <div class="hero-meta-item"><span class="dot">◆</span> 2026</div>
+    </div>
+    <div class="hero-cta">
+      <a href="#experiencia" class="cta-btn primary">▸ Ver Experiencia</a>
+      <a href="#contacto" class="cta-btn">▸ Contactar</a>
+      <a href="https://github.com/TU_USUARIO_GITHUB/sergio-martin-rodriguez.github.io"
+         target="_blank" rel="noopener" class="cta-btn">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        Código
+      </a>
+    </div>
+  </div>
+  <div class="scroll-indicator">SCROLL ↓</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SOBRE MÍ
+     ═══════════════════════════════════════════════════════════ -->
+<section id="sobre-mi">
+  <div class="section-header">
+    <div class="section-tag">01 / IDENTIDAD</div>
+    <h2 class="section-title">Donde el <span class="accent">acero</span> encuentra el <span class="accent">código</span></h2>
+    <div class="section-line"></div>
+  </div>
+  <div class="about-grid">
+    <div class="about-text">
+      <p>
+        Soy <span class="highlight">Técnico Electromecánico</span> con más de dos décadas operando
+        donde otros prefieren no estar: salas de máquinas, plantas frigoríficas con amoníaco,
+        almacenes automatizados. Aprendí a escuchar a las máquinas antes de que fallen.
+      </p>
+      <p>
+        Después decidí aprender otro idioma: el de los <span class="highlight">desarrolladores Full Stack</span>.
+        800 horas en Henry Bootcamp, JavaScript, React, Node.js. Hoy combino la disciplina industrial
+        con la mentalidad de programador: diagnóstico, iteración, mejora continua.
+      </p>
+      <p>
+        El resultado: alguien que entiende tanto un compresor como una API REST. Un perfil híbrido
+        diseñado para los entornos industriales que se digitalizan a toda velocidad.
+      </p>
+      <div class="about-stats">
+        <div class="stat-card">
+          <div class="stat-num">23+</div>
+          <div class="stat-label">Años en industria</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">800h</div>
+          <div class="stat-label">Bootcamp Full Stack</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">3</div>
+          <div class="stat-label">Empresas clave</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">2</div>
+          <div class="stat-label">Profesiones unidas</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Símbolo de fusión: engranaje + </> -->
+    <div class="fusion-symbol">
+      <svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gearGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="var(--primary-glow)"/>
+            <stop offset="100%" stop-color="var(--accent-blue)"/>
+          </linearGradient>
+        </defs>
+        <!-- Engranaje exterior grande -->
+        <g class="fusion-gear" transform-origin="160 160">
+          <g transform="translate(160 160)">
+            <!-- Dientes del engranaje -->
+            <g fill="none" stroke="url(#gearGrad)" stroke-width="2" opacity="0.85">
+              <!-- 12 dientes -->
+              <g>
+                <rect x="-8" y="-130" width="16" height="22" rx="2"/>
+                <g transform="rotate(30)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(60)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(90)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(120)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(150)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(180)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(210)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(240)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(270)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(300)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+                <g transform="rotate(330)"><rect x="-8" y="-130" width="16" height="22" rx="2"/></g>
+              </g>
+            </g>
+            <circle r="108" fill="none" stroke="url(#gearGrad)" stroke-width="2" opacity="0.7"/>
+            <circle r="92" fill="none" stroke="url(#gearGrad)" stroke-width="1" opacity="0.5" stroke-dasharray="4 4"/>
+          </g>
+        </g>
+        <!-- Engranaje pequeño contra-rotando -->
+        <g class="fusion-gear-rev" transform-origin="160 160">
+          <circle cx="160" cy="160" r="72" fill="none" stroke="url(#gearGrad)" stroke-width="1" opacity="0.4" stroke-dasharray="2 6"/>
+        </g>
+        <!-- Símbolo </> al centro -->
+        <g transform="translate(160 160)">
+          <text text-anchor="middle" dominant-baseline="middle"
+                font-family="JetBrains Mono, monospace"
+                font-size="42" font-weight="700"
+                fill="var(--primary-glow)"
+                style="filter: drop-shadow(0 0 8px var(--primary-glow));">&lt;/&gt;</text>
+        </g>
+        <!-- Pernos exteriores (4) -->
+        <g fill="var(--primary-glow)" opacity="0.8">
+          <circle cx="160" cy="36" r="3"/>
+          <circle cx="284" cy="160" r="3"/>
+          <circle cx="160" cy="284" r="3"/>
+          <circle cx="36" cy="160" r="3"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     EXPERIENCIA LABORAL - Timeline
+     ═══════════════════════════════════════════════════════════ -->
+<section id="experiencia">
+  <div class="section-header">
+    <div class="section-tag">02 / TRAYECTORIA</div>
+    <h2 class="section-title">Experiencia <span class="accent">en planta</span></h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="timeline">
+
+    <!-- Minerva Foods -->
+    <div class="timeline-item">
+      <div class="timeline-node"></div>
+      <div class="timeline-card">
+        <div class="tl-header">
+          <div class="tl-title-block">
+            <div class="tl-role">Operador Auxiliar · Sala de Máquinas</div>
+            <div class="tl-company">Minerva Foods</div>
+          </div>
+          <div class="tl-period">2026 · ACTUAL</div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-illustration">
+            <!-- Molécula NH3 estilizada -->
+            <svg class="nh3-mol" viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="atomN">
+                  <stop offset="0%" stop-color="var(--primary-glow)" stop-opacity="1"/>
+                  <stop offset="100%" stop-color="var(--accent-blue)" stop-opacity="0.4"/>
+                </radialGradient>
+                <radialGradient id="atomH">
+                  <stop offset="0%" stop-color="#fff" stop-opacity="0.9"/>
+                  <stop offset="100%" stop-color="var(--primary-glow)" stop-opacity="0.3"/>
+                </radialGradient>
+              </defs>
+              <!-- Enlaces -->
+              <line class="bond" x1="70" y1="55" x2="35" y2="100" stroke="var(--primary-glow)" stroke-width="1.5" opacity="0.7"/>
+              <line class="bond" x1="70" y1="55" x2="105" y2="100" stroke="var(--primary-glow)" stroke-width="1.5" opacity="0.7"/>
+              <line class="bond" x1="70" y1="55" x2="70" y2="20" stroke="var(--primary-glow)" stroke-width="1.5" opacity="0.7"/>
+              <!-- N central -->
+              <circle class="atom atom-n" cx="70" cy="55" r="18" fill="url(#atomN)"
+                style="filter: drop-shadow(0 0 8px var(--primary-glow));"/>
+              <text x="70" y="60" text-anchor="middle" font-family="JetBrains Mono" font-size="14" font-weight="700" fill="#000">N</text>
+              <!-- H1 -->
+              <circle class="atom atom-h1" cx="35" cy="100" r="11" fill="url(#atomH)"/>
+              <text x="35" y="104" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#000">H</text>
+              <!-- H2 -->
+              <circle class="atom atom-h2" cx="105" cy="100" r="11" fill="url(#atomH)"/>
+              <text x="105" y="104" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#000">H</text>
+              <!-- H3 -->
+              <circle class="atom atom-h3" cx="70" cy="20" r="11" fill="url(#atomH)"/>
+              <text x="70" y="24" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#000">H</text>
+              <!-- Etiqueta NH3 -->
+              <text x="70" y="125" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="var(--primary-glow)" letter-spacing="2">NH₃</text>
+            </svg>
+          </div>
+          <ul class="tl-tasks">
+            <li>Operación de sistemas frigoríficos industriales con amoníaco (NH₃)</li>
+            <li>Control de parámetros técnicos y condiciones operativas críticas</li>
+            <li>Mantenimiento preventivo de equipos de alta criticidad</li>
+            <li>Soporte continuo en funcionamiento de planta</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mastellone Hnos. -->
+    <div class="timeline-item">
+      <div class="timeline-node"></div>
+      <div class="timeline-card">
+        <div class="tl-header">
+          <div class="tl-title-block">
+            <div class="tl-role">Técnico Electromecánico</div>
+            <div class="tl-company">Mastellone Hnos.</div>
+          </div>
+          <div class="tl-period">NOV 2012 — ENE 2023</div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-illustration">
+            <!-- Almacén automatizado en miniatura -->
+            <svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
+              <!-- Estanterías -->
+              <g fill="none" stroke="var(--primary-glow)" stroke-width="1.2" opacity="0.7">
+                <rect x="10" y="20" width="50" height="70"/>
+                <line x1="10" y1="40" x2="60" y2="40"/>
+                <line x1="10" y1="60" x2="60" y2="60"/>
+                <line x1="35" y1="20" x2="35" y2="90"/>
+
+                <rect x="100" y="20" width="50" height="70"/>
+                <line x1="100" y1="40" x2="150" y2="40"/>
+                <line x1="100" y1="60" x2="150" y2="60"/>
+                <line x1="125" y1="20" x2="125" y2="90"/>
+              </g>
+              <!-- Cajas en estanterías -->
+              <g fill="var(--primary-glow)" opacity="0.6">
+                <rect x="13" y="23" width="20" height="14"/>
+                <rect x="38" y="43" width="20" height="14"/>
+                <rect x="13" y="63" width="20" height="14"/>
+                <rect x="103" y="43" width="20" height="14"/>
+                <rect x="128" y="23" width="20" height="14"/>
+                <rect x="128" y="63" width="20" height="14"/>
+              </g>
+              <!-- Suelo -->
+              <line x1="0" y1="100" x2="160" y2="100" stroke="var(--primary-glow)" stroke-width="1.5"/>
+              <!-- Carretilla 1 -->
+              <g class="warehouse-cart">
+                <rect x="0" y="92" width="22" height="8" fill="var(--accent-amber)"/>
+                <rect x="2" y="86" width="6" height="8" fill="var(--accent-amber)"/>
+                <circle cx="5" cy="102" r="3" fill="#fff"/>
+                <circle cx="18" cy="102" r="3" fill="#fff"/>
+              </g>
+              <!-- Carretilla 2 -->
+              <g class="warehouse-cart-2">
+                <rect x="0" y="92" width="22" height="8" fill="var(--primary-glow)"/>
+                <rect x="2" y="86" width="6" height="8" fill="var(--primary-glow)"/>
+                <circle cx="5" cy="102" r="3" fill="#fff"/>
+                <circle cx="18" cy="102" r="3" fill="#fff"/>
+              </g>
+              <!-- Etiqueta -->
+              <text x="80" y="120" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="var(--primary-glow)" letter-spacing="2">[ AUTO_WAREHOUSE ]</text>
+            </svg>
+          </div>
+          <ul class="tl-tasks">
+            <li>Mantenimiento electromecánico e informático de almacén automatizado</li>
+            <li>Manejo de cámaras de frío, autoelevadores y carretillas eléctricas</li>
+            <li>Participación activa en expedición y tareas logísticas</li>
+            <li>Foco en efectividad, puntualidad y comunicación clara</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- I.S.I. -->
+    <div class="timeline-item">
+      <div class="timeline-node"></div>
+      <div class="timeline-card">
+        <div class="tl-header">
+          <div class="tl-title-block">
+            <div class="tl-role">Técnico de Soporte</div>
+            <div class="tl-company">I.S.I. Servicios Informáticos</div>
+          </div>
+          <div class="tl-period">ENE 2001 — ENE 2012</div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-illustration">
+            <!-- Monitor CRT antiguo -->
+            <svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
+              <!-- Carcasa -->
+              <rect x="14" y="14" width="132" height="92" rx="6" fill="none" stroke="var(--primary-glow)" stroke-width="2"/>
+              <rect x="22" y="22" width="116" height="76" fill="#020408" stroke="var(--primary-glow)" stroke-width="0.8"/>
+              <!-- Base -->
+              <rect x="55" y="106" width="50" height="6" fill="var(--primary-glow)" opacity="0.6"/>
+              <rect x="40" y="112" width="80" height="8" rx="2" fill="none" stroke="var(--primary-glow)" stroke-width="1.5"/>
+              <!-- Texto en pantalla -->
+              <g font-family="JetBrains Mono" font-size="6" fill="var(--primary-glow)">
+                <text class="crt-text" x="28" y="34" style="animation-delay: 0s">&gt; PING 192.168.1.1</text>
+                <text class="crt-text" x="28" y="44" style="animation-delay: 0.5s">&gt; OK 64 bytes</text>
+                <text class="crt-text" x="28" y="54" style="animation-delay: 1s">&gt; SCAN NETWORK...</text>
+                <text class="crt-text" x="28" y="64" style="animation-delay: 1.5s">&gt; HOSTS: 12 UP</text>
+                <text class="crt-text" x="28" y="74" style="animation-delay: 2s">&gt; SYS: ALL_OK_</text>
+              </g>
+              <!-- Línea de scan -->
+              <line class="crt-line" x1="22" y1="50" x2="138" y2="50" stroke="var(--primary-glow)" stroke-width="2" opacity="0.4"/>
+              <!-- LED de encendido -->
+              <circle cx="138" cy="100" r="2" fill="var(--accent-amber)">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+          </div>
+          <ul class="tl-tasks">
+            <li>Soporte técnico a empresas, fábricas y particulares</li>
+            <li>Atención integral en hardware, software y redes</li>
+            <li>Expansión de cartera de clientes a nivel local</li>
+            <li>Diagnóstico y reparación de equipos en sitio</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FORMACIÓN
+     ═══════════════════════════════════════════════════════════ -->
+<section id="formacion">
+  <div class="section-header">
+    <div class="section-tag">03 / FORMACIÓN</div>
+    <h2 class="section-title">Dos <span class="accent">caminos</span>, un perfil</h2>
+    <div class="section-line"></div>
+  </div>
+  <div class="formation-grid">
+
+    <div class="formation-card">
+      <!-- Icono industrial: llave/engranaje -->
+      <svg class="formation-icon" viewBox="0 0 60 60" fill="none" stroke="var(--primary-glow)" stroke-width="2">
+        <circle cx="30" cy="30" r="8"/>
+        <path d="M30 6v8M30 46v8M6 30h8M46 30h8M13 13l5.7 5.7M41.3 41.3l5.7 5.7M13 47l5.7-5.7M41.3 18.7L47 13"/>
+      </svg>
+      <div class="formation-type">[ Industrial ]</div>
+      <h3 class="formation-title">Técnico Electromecánico</h3>
+      <div class="formation-school">EPET N.º 15 · Ing. Agustín Mercau · Villa Mercedes</div>
+      <p style="color: var(--text-secondary); font-size: 0.95rem;">
+        Formación técnica completa: electricidad industrial, mecánica, neumática, hidráulica, soldadura,
+        automatismos y mantenimiento de equipos.
+      </p>
+      <div class="formation-tags">
+        <span class="tag">Electricidad</span>
+        <span class="tag">Mecánica</span>
+        <span class="tag">Neumática</span>
+        <span class="tag">Automatismos</span>
+        <span class="tag">Refrigeración</span>
+      </div>
+    </div>
+
+    <div class="formation-card">
+      <!-- Icono dev: </> -->
+      <svg class="formation-icon" viewBox="0 0 60 60" fill="none" stroke="var(--primary-glow)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20,18 8,30 20,42"/>
+        <polyline points="40,18 52,30 40,42"/>
+        <line x1="34" y1="14" x2="26" y2="46"/>
+      </svg>
+      <div class="formation-type">[ Desarrollo ]</div>
+      <h3 class="formation-title">Full Stack Web Developer</h3>
+      <div class="formation-school">Henry Bootcamp · 800 hs · 2023</div>
+      <p style="color: var(--text-secondary); font-size: 0.95rem;">
+        Bootcamp intensivo full-time: desarrollo frontend con React, backend con Node.js + Express,
+        bases de datos SQL, control de versiones y metodologías ágiles.
+      </p>
+      <div class="formation-tags">
+        <span class="tag">JavaScript</span>
+        <span class="tag">React</span>
+        <span class="tag">Node.js</span>
+        <span class="tag">Express</span>
+        <span class="tag">Redux</span>
+        <span class="tag">PostgreSQL</span>
+        <span class="tag">HTML5</span>
+        <span class="tag">CSS</span>
+        <span class="tag">Git</span>
+        <span class="tag">Scrum</span>
+        <span class="tag">Jira</span>
+        <span class="tag">Bootstrap</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL DE HABILIDADES - estilo control panel industrial
+     ═══════════════════════════════════════════════════════════ -->
+<section id="habilidades">
+  <div class="section-header">
+    <div class="section-tag">04 / SISTEMA</div>
+    <h2 class="section-title">Panel de <span class="accent">control</span></h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="skills-panel">
+    <div class="panel-header">
+      <div class="panel-title">[ DIAGNOSTIC :: SKILL_MATRIX ]</div>
+      <div class="panel-leds">
+        <span class="led on"></span>
+        <span class="led on"></span>
+        <span class="led on"></span>
+        <span class="led on"></span>
+        <span class="led"></span>
+      </div>
+    </div>
+
+    <div class="skills-grid">
+      <!-- Habilidades Industriales -->
+      <div class="skill-group">
+        <h4>Industrial · Hardware</h4>
+        <div class="skill-bar" data-pct="92">
+          <div class="skill-bar-label"><span class="skill-bar-name">Mantenimiento Electromecánico</span><span class="skill-bar-pct">92%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="88">
+          <div class="skill-bar-label"><span class="skill-bar-name">Sistemas Frigoríficos NH₃</span><span class="skill-bar-pct">88%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="85">
+          <div class="skill-bar-label"><span class="skill-bar-name">Sistemas Automatizados</span><span class="skill-bar-pct">85%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="90">
+          <div class="skill-bar-label"><span class="skill-bar-name">Soporte Hardware/Redes</span><span class="skill-bar-pct">90%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="95">
+          <div class="skill-bar-label"><span class="skill-bar-name">Trabajo en Equipo</span><span class="skill-bar-pct">95%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="93">
+          <div class="skill-bar-label"><span class="skill-bar-name">Adaptabilidad</span><span class="skill-bar-pct">93%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+      </div>
+
+      <!-- Habilidades Dev -->
+      <div class="skill-group">
+        <h4>Software · Stack</h4>
+        <div class="skill-bar" data-pct="80">
+          <div class="skill-bar-label"><span class="skill-bar-name">JavaScript</span><span class="skill-bar-pct">80%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="75">
+          <div class="skill-bar-label"><span class="skill-bar-name">React + Redux</span><span class="skill-bar-pct">75%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="72">
+          <div class="skill-bar-label"><span class="skill-bar-name">Node.js / Express</span><span class="skill-bar-pct">72%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="70">
+          <div class="skill-bar-label"><span class="skill-bar-name">PostgreSQL</span><span class="skill-bar-pct">70%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="85">
+          <div class="skill-bar-label"><span class="skill-bar-name">HTML5 / CSS</span><span class="skill-bar-pct">85%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+        <div class="skill-bar" data-pct="78">
+          <div class="skill-bar-label"><span class="skill-bar-name">Git / Scrum / Jira</span><span class="skill-bar-pct">78%</span></div>
+          <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulos de tecnología (circuitos) -->
+    <div style="margin-top: 40px; padding-top: 30px; border-top: 1px dashed rgba(0, 229, 255, 0.2);">
+      <h4 class="mono" style="font-size:0.85rem; color:var(--text-secondary); letter-spacing:0.15em; margin-bottom:20px; text-transform:uppercase;">
+        <span style="color:var(--primary-glow)">[ </span>Módulos del sistema interconectados<span style="color:var(--primary-glow)"> ]</span>
+      </h4>
+      <div class="tech-modules" id="tech-modules">
+        <!-- Cada módulo = un chip con SVG estilo IC -->
+        <div class="tech-module" data-tech="React">
+          <svg viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="2.5" fill="var(--primary-glow)"/>
+            <ellipse cx="16" cy="16" rx="11" ry="4.5" stroke="var(--primary-glow)" stroke-width="1"/>
+            <ellipse cx="16" cy="16" rx="11" ry="4.5" stroke="var(--primary-glow)" stroke-width="1" transform="rotate(60 16 16)"/>
+            <ellipse cx="16" cy="16" rx="11" ry="4.5" stroke="var(--primary-glow)" stroke-width="1" transform="rotate(120 16 16)"/>
+          </svg>
+          <div class="tech-module-name">React</div>
+        </div>
+        <div class="tech-module" data-tech="Node.js">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <polygon points="16,4 27,10 27,22 16,28 5,22 5,10" />
+            <text x="16" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--primary-glow)" stroke="none">N</text>
+          </svg>
+          <div class="tech-module-name">Node.js</div>
+        </div>
+        <div class="tech-module" data-tech="JavaScript">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect x="4" y="4" width="24" height="24" rx="2" fill="var(--primary-glow)" opacity="0.15" stroke="var(--primary-glow)" stroke-width="1.2"/>
+            <text x="16" y="22" text-anchor="middle" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="var(--primary-glow)">JS</text>
+          </svg>
+          <div class="tech-module-name">JavaScript</div>
+        </div>
+        <div class="tech-module" data-tech="Express">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <line x1="4" y1="16" x2="28" y2="16"/>
+            <polyline points="22,10 28,16 22,22"/>
+            <circle cx="6" cy="16" r="2" fill="var(--primary-glow)"/>
+          </svg>
+          <div class="tech-module-name">Express</div>
+        </div>
+        <div class="tech-module" data-tech="Redux">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <circle cx="16" cy="16" r="3" fill="var(--primary-glow)"/>
+            <path d="M16 5 A11 11 0 0 1 27 16" />
+            <path d="M16 27 A11 11 0 0 1 5 16" />
+            <circle cx="16" cy="5" r="1.5" fill="var(--primary-glow)"/>
+            <circle cx="27" cy="16" r="1.5" fill="var(--primary-glow)"/>
+            <circle cx="5" cy="16" r="1.5" fill="var(--primary-glow)"/>
+          </svg>
+          <div class="tech-module-name">Redux</div>
+        </div>
+        <div class="tech-module" data-tech="PostgreSQL">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <ellipse cx="16" cy="8" rx="10" ry="3"/>
+            <path d="M6 8 L6 24 A10 3 0 0 0 26 24 L26 8"/>
+            <path d="M6 16 A10 3 0 0 0 26 16"/>
+          </svg>
+          <div class="tech-module-name">PostgreSQL</div>
+        </div>
+        <div class="tech-module" data-tech="HTML5">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <polygon points="6,4 26,4 24,28 16,30 8,28"/>
+            <text x="16" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="700" fill="var(--primary-glow)" stroke="none">5</text>
+          </svg>
+          <div class="tech-module-name">HTML5</div>
+        </div>
+        <div class="tech-module" data-tech="CSS">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <polygon points="6,4 26,4 24,28 16,30 8,28"/>
+            <text x="16" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="700" fill="var(--primary-glow)" stroke="none">3</text>
+          </svg>
+          <div class="tech-module-name">CSS</div>
+        </div>
+        <div class="tech-module" data-tech="Git">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <circle cx="8" cy="8" r="2.5" fill="var(--primary-glow)"/>
+            <circle cx="8" cy="24" r="2.5" fill="var(--primary-glow)"/>
+            <circle cx="24" cy="16" r="2.5" fill="var(--primary-glow)"/>
+            <line x1="8" y1="11" x2="8" y2="21"/>
+            <path d="M8 16 L 24 16"/>
+          </svg>
+          <div class="tech-module-name">Git</div>
+        </div>
+        <div class="tech-module" data-tech="Bootstrap">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <rect x="4" y="6" width="24" height="20" rx="3"/>
+            <text x="16" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="10" font-weight="700" fill="var(--primary-glow)" stroke="none">B</text>
+          </svg>
+          <div class="tech-module-name">Bootstrap</div>
+        </div>
+        <div class="tech-module" data-tech="Scrum">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <circle cx="16" cy="16" r="11"/>
+            <path d="M16 6 A10 10 0 0 1 26 16"/>
+            <circle cx="16" cy="16" r="2" fill="var(--primary-glow)"/>
+          </svg>
+          <div class="tech-module-name">Scrum</div>
+        </div>
+        <div class="tech-module" data-tech="Jira">
+          <svg viewBox="0 0 32 32" fill="none" stroke="var(--primary-glow)" stroke-width="1.4">
+            <polygon points="16,4 28,16 16,28 4,16"/>
+            <polygon points="16,10 22,16 16,22 10,16" fill="var(--primary-glow)" opacity="0.4"/>
+          </svg>
+          <div class="tech-module-name">Jira</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TERMINAL INTERACTIVA
+     ═══════════════════════════════════════════════════════════ -->
+<section id="terminal">
+  <div class="section-header">
+    <div class="section-tag">05 / CONSOLE</div>
+    <h2 class="section-title">Terminal <span class="accent">interactiva</span></h2>
+    <div class="section-line"></div>
+    <p style="color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; margin-top: 12px;">
+      Escribí <span style="color: var(--primary-glow)">help</span> para ver los comandos disponibles.
+    </p>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="term-dot r"></span>
+      <span class="term-dot y"></span>
+      <span class="term-dot g"></span>
+      <span class="term-bar-title">sergio@smr-system: ~ </span>
+    </div>
+    <div class="term-body" id="term-body">
+      <!-- Las líneas se inyectan dinámicamente -->
+    </div>
+    <div class="term-input-line">
+      <span class="term-prompt">sergio@smr:~$</span>
+      <input type="text" class="term-input" id="term-input" autocomplete="off" spellcheck="false" placeholder="escribe un comando...">
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CONTACTO
+     ═══════════════════════════════════════════════════════════ -->
+<section id="contacto">
+  <div class="section-header">
+    <div class="section-tag">06 / TRANSMITIR</div>
+    <h2 class="section-title">Establecer <span class="accent">conexión</span></h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="contact-grid">
+
+    <div class="contact-info">
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </div>
+        <div class="contact-row-text">
+          <div class="contact-row-label">EMAIL</div>
+          <a href="mailto:it.sergiorodriguez@gmail.com" class="contact-row-value">it.sergiorodriguez@gmail.com</a>
+        </div>
+      </div>
+
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </div>
+        <div class="contact-row-text">
+          <div class="contact-row-label">TELÉFONO</div>
+          <a href="tel:+5492657620824" class="contact-row-value">+54 9 2657 620824</a>
+        </div>
+      </div>
+
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/>
+            <rect x="2" y="9" width="4" height="12"/>
+            <circle cx="4" cy="4" r="2"/>
+          </svg>
+        </div>
+        <div class="contact-row-text">
+          <div class="contact-row-label">LINKEDIN</div>
+          <a href="https://linkedin.com/in/sergio-martin-rodriguez-pro" target="_blank" rel="noopener" class="contact-row-value">linkedin.com/in/sergio-martin-rodriguez-pro</a>
+        </div>
+      </div>
+
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </div>
+        <div class="contact-row-text">
+          <div class="contact-row-label">GITHUB</div>
+          <a href="https://github.com/TU_USUARIO_GITHUB" target="_blank" rel="noopener" class="contact-row-value">github.com/TU_USUARIO_GITHUB</a>
+        </div>
+      </div>
+
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+        <div class="contact-row-text">
+          <div class="contact-row-label">UBICACIÓN</div>
+          <span class="contact-row-value">Villa Mercedes, San Luis · AR</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="contact-form">
+      <form id="contact-form" novalidate>
+        <div class="form-row">
+          <label for="cf-name">Identificador</label>
+          <input type="text" id="cf-name" name="name" required placeholder="Tu nombre">
+        </div>
+        <div class="form-row">
+          <label for="cf-email">Canal de retorno</label>
+          <input type="email" id="cf-email" name="email" required placeholder="tu@email.com">
+        </div>
+        <div class="form-row">
+          <label for="cf-msg">Payload</label>
+          <textarea id="cf-msg" name="msg" required placeholder="Tu mensaje..."></textarea>
+        </div>
+        <button type="submit" class="send-btn">▶ Transmitir mensaje</button>
+      </form>
+
+      <!-- Animación de envío por tubería digital -->
+      <div class="pipe-anim" id="pipe-anim">
+        <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="pipeFlow" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="var(--primary-glow)" stop-opacity="0">
+                <animate attributeName="offset" values="-0.5;1.5" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="50%" stop-color="var(--primary-glow)" stop-opacity="1">
+                <animate attributeName="offset" values="0;2" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="100%" stop-color="var(--primary-glow)" stop-opacity="0">
+                <animate attributeName="offset" values="0.5;2.5" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+            </linearGradient>
+          </defs>
+          <!-- Tubería -->
+          <rect x="20" y="80" width="360" height="40" rx="20" fill="none" stroke="var(--primary-glow)" stroke-width="2"/>
+          <!-- Bridas -->
+          <rect x="14" y="70" width="14" height="60" rx="2" fill="var(--primary-glow)" opacity="0.4"/>
+          <rect x="372" y="70" width="14" height="60" rx="2" fill="var(--primary-glow)" opacity="0.4"/>
+          <rect x="190" y="70" width="20" height="60" rx="2" fill="none" stroke="var(--primary-glow)" stroke-width="1.5"/>
+          <!-- Flujo de datos -->
+          <rect x="22" y="82" width="356" height="36" rx="18" fill="url(#pipeFlow)"/>
+          <!-- Paquetes de datos -->
+          <g font-family="JetBrains Mono" font-size="10" fill="var(--bg-primary)" font-weight="700">
+            <text x="50" y="106">
+              0x4F
+              <animate attributeName="x" values="-30;420" dur="1.8s" repeatCount="indefinite"/>
+            </text>
+            <text x="150" y="106">
+              {data}
+              <animate attributeName="x" values="-80;420" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+            </text>
+            <text x="250" y="106">
+              ACK
+              <animate attributeName="x" values="-150;420" dur="1.8s" begin="0.9s" repeatCount="indefinite"/>
+            </text>
+          </g>
+        </svg>
+        <div class="pipe-confirm" id="pipe-confirm">▸ TRANSMITIENDO PAYLOAD...</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-line">[ END_OF_TRANSMISSION ]</div>
+  <div>© 2026 Sergio Martín Rodríguez · Construido con &lt;/&gt; y ⚙️</div>
+  <div style="margin-top:8px; opacity:0.6;">v2.0 · single-page · vanilla JS · Three.js</div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════
+     EASTER EGG MODAL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="egg-modal" id="egg-modal">
+  <div class="egg-content">
+    <button class="egg-close" id="egg-close">×</button>
+    <h3 id="egg-title">[ EASTER_EGG ]</h3>
+    <p id="egg-text"></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ═══════════════════════════════════════════════════════════
+                          JAVASCRIPT
+     ═══════════════════════════════════════════════════════════
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ───────────────────────────────────────────────────────────
+   1. AUDIO - Web Audio API para sonidos sintetizados sutiles
+   ─────────────────────────────────────────────────────────── */
+const AudioFX = (() => {
+  let ctx = null;
+  let enabled = true;
+
+  function getCtx() {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { return null; }
+    }
+    return ctx;
+  }
+
+  function beep(freq = 600, duration = 0.08, type = 'sine', vol = 0.06) {
+    if (!enabled) return;
+    const c = getCtx();
+    if (!c) return;
+    if (c.state === 'suspended') c.resume();
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, c.currentTime);
+    gain.gain.linearRampToValueAtTime(vol, c.currentTime + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
+    osc.connect(gain).connect(c.destination);
+    osc.start();
+    osc.stop(c.currentTime + duration);
+  }
+
+  return {
+    click: () => beep(800, 0.05, 'square', 0.04),
+    hover: () => beep(1200, 0.03, 'sine', 0.02),
+    success: () => { beep(660, 0.1, 'sine', 0.05); setTimeout(() => beep(880, 0.15, 'sine', 0.05), 80); },
+    type: () => beep(1000 + Math.random() * 200, 0.02, 'square', 0.015),
+    toggle: () => beep(440, 0.12, 'sawtooth', 0.05),
+    setEnabled: (v) => { enabled = v; },
+    isEnabled: () => enabled
+  };
+})();
+
+/* ───────────────────────────────────────────────────────────
+   2. CONFIG MODOS - cambio entre Dev y Técnico
+   ─────────────────────────────────────────────────────────── */
+document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    document.body.className = 'mode-' + mode;
+    document.querySelectorAll('.mode-btn[data-mode]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    AudioFX.toggle();
+    // Actualizar texto de estado
+    document.getElementById('status-text').textContent =
+      mode === 'tecnico' ? 'MODO TÉCNICO ACTIVO' : 'MODO DEV ACTIVO';
+  });
+});
+
+// Botón sonido on/off
+const soundBtn = document.getElementById('sound-btn');
+soundBtn.addEventListener('click', () => {
+  const newState = !AudioFX.isEnabled();
+  AudioFX.setEnabled(newState);
+  soundBtn.textContent = newState ? '[ AUDIO: ON ]' : '[ AUDIO: OFF ]';
+  if (newState) AudioFX.click();
+});
+
+/* ───────────────────────────────────────────────────────────
+   3. NOMBRE HERO - efecto de ensamblaje letra por letra
+   ─────────────────────────────────────────────────────────── */
+function buildHeroName() {
+  const text = 'SERGIO M. RODRÍGUEZ';
+  const container = document.getElementById('hero-name');
+  container.innerHTML = '';
+  let delay = 0.1;
+  // Dividimos en partes para colorear "M. RODRÍGUEZ" como acento
+  text.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch === ' ' ? '\u00A0' : ch;
+    span.style.animationDelay = (delay + i * 0.04) + 's';
+    if (i >= 7) span.classList.add('accent');
+    container.appendChild(span);
+  });
+}
+buildHeroName();
+
+/* ───────────────────────────────────────────────────────────
+   4. ROTADOR DE SUBTÍTULOS (estilo terminal)
+   ─────────────────────────────────────────────────────────── */
+const ROTATOR_PHRASES = [
+  'Técnico Electromecánico',
+  'Desarrollador Full Stack',
+  'Operador de Sala de Máquinas',
+  'Solucionador de problemas',
+  'Industrial × Digital'
+];
+const rotEl = document.getElementById('rotator-text');
+let rotIdx = 0, rotChar = 0, rotForward = true;
+
+function rotateLoop() {
+  const phrase = ROTATOR_PHRASES[rotIdx];
+  if (rotForward) {
+    rotChar++;
+    rotEl.textContent = phrase.slice(0, rotChar);
+    if (rotChar === phrase.length) {
+      rotForward = false;
+      setTimeout(rotateLoop, 2200);
+      return;
+    }
+    setTimeout(rotateLoop, 65 + Math.random() * 40);
+  } else {
+    rotChar--;
+    rotEl.textContent = phrase.slice(0, rotChar);
+    if (rotChar === 0) {
+      rotForward = true;
+      rotIdx = (rotIdx + 1) % ROTATOR_PHRASES.length;
+      setTimeout(rotateLoop, 350);
+      return;
+    }
+    setTimeout(rotateLoop, 30);
+  }
+}
+setTimeout(rotateLoop, 1800);
+
+/* ───────────────────────────────────────────────────────────
+   5. THREE.JS HERO SCENE - Compresor + código fluyendo
+   ─────────────────────────────────────────────────────────── */
+function initHeroScene() {
+  if (typeof THREE === 'undefined') return; // CDN no cargó
+
+  const canvas = document.getElementById('hero-canvas');
+  const heroSection = document.getElementById('hero');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(heroSection.clientWidth, heroSection.clientHeight);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x08090d, 8, 30);
+
+  const camera = new THREE.PerspectiveCamera(60, heroSection.clientWidth / heroSection.clientHeight, 0.1, 100);
+  camera.position.set(0, 0, 8);
+
+  // Luces
+  const ambient = new THREE.AmbientLight(0x223344, 0.6);
+  scene.add(ambient);
+  const point1 = new THREE.PointLight(0x00e5ff, 1.5, 25);
+  point1.position.set(5, 4, 5);
+  scene.add(point1);
+  const point2 = new THREE.PointLight(0xff6b35, 0.8, 20);
+  point2.position.set(-5, -3, 4);
+  scene.add(point2);
+
+  // Color reactivo al modo
+  function getThemeColor() {
+    return document.body.classList.contains('mode-tecnico') ? 0xffa726 : 0x00e5ff;
+  }
+
+  // ─── Compresor frigorífico abstracto en el centro ───
+  const compressorGroup = new THREE.Group();
+
+  // Cilindro principal (cuerpo del compresor)
+  const cylGeo = new THREE.CylinderGeometry(0.9, 0.9, 2.4, 32, 1, true);
+  const cylMat = new THREE.MeshPhongMaterial({
+    color: 0x1a2030,
+    emissive: 0x00e5ff,
+    emissiveIntensity: 0.15,
+    wireframe: false,
+    transparent: true,
+    opacity: 0.85,
+    side: THREE.DoubleSide
+  });
+  const cylinder = new THREE.Mesh(cylGeo, cylMat);
+  compressorGroup.add(cylinder);
+
+  // Tapas
+  const capGeo = new THREE.TorusGeometry(0.9, 0.08, 16, 64);
+  const capMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+  const capTop = new THREE.Mesh(capGeo, capMat);
+  capTop.rotation.x = Math.PI / 2;
+  capTop.position.y = 1.2;
+  const capBot = capTop.clone();
+  capBot.position.y = -1.2;
+  compressorGroup.add(capTop, capBot);
+
+  // Anillos animados sobre el cilindro
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.4 });
+  const rings = [];
+  for (let i = 0; i < 5; i++) {
+    const rGeo = new THREE.TorusGeometry(0.92, 0.015, 8, 64);
+    const r = new THREE.Mesh(rGeo, ringMat.clone());
+    r.rotation.x = Math.PI / 2;
+    r.position.y = -1.2 + (i * 0.6);
+    rings.push(r);
+    compressorGroup.add(r);
+  }
+
+  // Tuberías que salen
+  const pipeMat = new THREE.MeshPhongMaterial({ color: 0x4a5568, emissive: 0x00e5ff, emissiveIntensity: 0.2 });
+  const pipeTopGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.2, 16);
+  const pipeTop = new THREE.Mesh(pipeTopGeo, pipeMat);
+  pipeTop.position.y = 1.8;
+  compressorGroup.add(pipeTop);
+
+  const pipeRGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.5, 16);
+  const pipeR = new THREE.Mesh(pipeRGeo, pipeMat);
+  pipeR.position.x = 1.5;
+  pipeR.rotation.z = Math.PI / 2;
+  compressorGroup.add(pipeR);
+
+  const pipeLGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.5, 16);
+  const pipeL = new THREE.Mesh(pipeLGeo, pipeMat);
+  pipeL.position.x = -1.5;
+  pipeL.rotation.z = Math.PI / 2;
+  compressorGroup.add(pipeL);
+
+  // Engranaje superior
+  function buildGear(radius, teeth, thickness) {
+    const shape = new THREE.Shape();
+    const innerR = radius * 0.85;
+    for (let i = 0; i <= teeth * 4; i++) {
+      const angle = (i / (teeth * 4)) * Math.PI * 2;
+      const r = (i % 4 < 2) ? radius : innerR;
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+    }
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, radius * 0.3, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+    return new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+  }
+  const gearGeo = buildGear(0.35, 12, 0.12);
+  const gearMat = new THREE.MeshPhongMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.4 });
+  const gear = new THREE.Mesh(gearGeo, gearMat);
+  gear.position.set(0, 2.5, 0);
+  gear.rotation.x = Math.PI / 2;
+  compressorGroup.add(gear);
+
+  scene.add(compressorGroup);
+
+  // ─── Líneas de "código" ascendente (fragmentos de texto) ───
+  // Crearemos sprites con pequeños fragmentos de código
+  const codeSnippets = ['{ }', '< />', '() =>', 'NH₃', 'API', 'fn()', 'JSX', '0x4F', 'const', 'async', '[ ]', '++', 'PSI', '°C', 'P=V·I', 'sudo'];
+  const codeSprites = [];
+
+  function makeTextSprite(text, color) {
+    const cnv = document.createElement('canvas');
+    cnv.width = 256; cnv.height = 64;
+    const c = cnv.getContext('2d');
+    c.font = 'bold 36px JetBrains Mono, monospace';
+    c.fillStyle = color;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.shadowColor = color;
+    c.shadowBlur = 14;
+    c.fillText(text, 128, 32);
+    const tex = new THREE.CanvasTexture(cnv);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+    const sp = new THREE.Sprite(mat);
+    sp.scale.set(1.4, 0.35, 1);
+    return sp;
+  }
+
+  function spawnCodeSprite() {
+    const txt = codeSnippets[Math.floor(Math.random() * codeSnippets.length)];
+    const colorHex = getThemeColor() === 0x00e5ff ? '#00e5ff' : '#ffa726';
+    const sp = makeTextSprite(txt, colorHex);
+    // Empieza dentro del compresor y sube
+    sp.position.set((Math.random() - 0.5) * 0.4, 1.2 + Math.random() * 0.4, (Math.random() - 0.5) * 0.4);
+    sp.userData = {
+      vy: 0.015 + Math.random() * 0.02,
+      vx: (Math.random() - 0.5) * 0.008,
+      vz: (Math.random() - 0.5) * 0.008,
+      life: 0,
+      maxLife: 5 + Math.random() * 3
+    };
+    scene.add(sp);
+    codeSprites.push(sp);
+  }
+
+  // ─── Partículas (puntos) tipo "moléculas NH3" flotantes ───
+  const particleCount = 250;
+  const particleGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 22;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 14;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2;
+    velocities[i * 3] = (Math.random() - 0.5) * 0.003;
+    velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.003;
+    velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
+  }
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const particleMat = new THREE.PointsMaterial({
+    color: 0x00e5ff,
+    size: 0.04,
+    transparent: true,
+    opacity: 0.6,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const particles = new THREE.Points(particleGeo, particleMat);
+  scene.add(particles);
+
+  // ─── Rejilla de fondo (orbital) ───
+  const gridHelper = new THREE.GridHelper(40, 40, 0x00e5ff, 0x00334d);
+  gridHelper.position.y = -4;
+  gridHelper.material.opacity = 0.15;
+  gridHelper.material.transparent = true;
+  scene.add(gridHelper);
+
+  // ─── Resize ───
+  function onResize() {
+    const w = heroSection.clientWidth;
+    const h = heroSection.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  window.addEventListener('resize', onResize);
+
+  // ─── Mouse parallax ───
+  let mouseX = 0, mouseY = 0;
+  heroSection.addEventListener('mousemove', (e) => {
+    const rect = heroSection.getBoundingClientRect();
+    mouseX = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+    mouseY = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+  });
+
+  // ─── Loop ───
+  let lastSpawn = 0;
+  let lastTime = performance.now();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+
+    // Color tema (actualiza materiales si cambió el modo)
+    const themeColor = getThemeColor();
+    cylMat.emissive.setHex(themeColor);
+    capMat.color.setHex(themeColor);
+    rings.forEach(r => r.material.color.setHex(themeColor));
+    pipeMat.emissive.setHex(themeColor);
+    gearMat.color.setHex(themeColor);
+    gearMat.emissive.setHex(themeColor);
+    particleMat.color.setHex(themeColor);
+    point1.color.setHex(themeColor);
+
+    // Compresor: rotación lenta
+    compressorGroup.rotation.y += 0.005;
+    compressorGroup.position.y = Math.sin(now * 0.0008) * 0.1;
+    gear.rotation.z += 0.025;
+
+    // Anillos: pulsan en escala
+    rings.forEach((r, i) => {
+      const s = 1 + Math.sin(now * 0.003 + i * 0.5) * 0.06;
+      r.scale.set(s, 1, s);
+      r.material.opacity = 0.3 + Math.sin(now * 0.003 + i * 0.5) * 0.2;
+    });
+
+    // Spawn nuevos sprites de código
+    if (now - lastSpawn > 280) {
+      lastSpawn = now;
+      if (codeSprites.length < 18) spawnCodeSprite();
+    }
+
+    // Mover sprites de código
+    for (let i = codeSprites.length - 1; i >= 0; i--) {
+      const sp = codeSprites[i];
+      sp.position.x += sp.userData.vx;
+      sp.position.y += sp.userData.vy;
+      sp.position.z += sp.userData.vz;
+      sp.userData.life += dt;
+      const t = sp.userData.life / sp.userData.maxLife;
+      sp.material.opacity = Math.sin(t * Math.PI) * 0.85;
+      if (sp.userData.life > sp.userData.maxLife) {
+        scene.remove(sp);
+        sp.material.map.dispose();
+        sp.material.dispose();
+        codeSprites.splice(i, 1);
+      }
+    }
+
+    // Partículas: drift sutil
+    const pos = particles.geometry.attributes.position.array;
+    for (let i = 0; i < particleCount; i++) {
+      pos[i * 3] += velocities[i * 3];
+      pos[i * 3 + 1] += velocities[i * 3 + 1];
+      pos[i * 3 + 2] += velocities[i * 3 + 2];
+      // Wrap
+      if (Math.abs(pos[i * 3]) > 12) velocities[i * 3] *= -1;
+      if (Math.abs(pos[i * 3 + 1]) > 7) velocities[i * 3 + 1] *= -1;
+      if (Math.abs(pos[i * 3 + 2]) > 6) velocities[i * 3 + 2] *= -1;
+    }
+    particles.geometry.attributes.position.needsUpdate = true;
+
+    // Cámara parallax
+    camera.position.x += (mouseX * 1.2 - camera.position.x) * 0.04;
+    camera.position.y += (-mouseY * 0.8 - camera.position.y) * 0.04;
+    camera.lookAt(0, 0, 0);
+
+    renderer.render(scene, camera);
+  }
+  animate(performance.now());
+}
+// Iniciar escena 3D después de carga
+window.addEventListener('load', () => {
+  // Pequeño delay para asegurar que three está disponible
+  setTimeout(initHeroScene, 50);
+});
+
+/* ───────────────────────────────────────────────────────────
+   6. INTERSECTION OBSERVER - Animaciones al scrollear
+   ─────────────────────────────────────────────────────────── */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+
+      // Si es la sección de habilidades, animar barras
+      if (entry.target.id === 'habilidades') {
+        document.querySelectorAll('.skill-bar').forEach((bar, i) => {
+          const pct = bar.dataset.pct;
+          setTimeout(() => {
+            bar.querySelector('.skill-bar-fill').style.width = pct + '%';
+          }, i * 80);
+        });
+      }
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.timeline-item, #habilidades').forEach(el => observer.observe(el));
+
+/* ───────────────────────────────────────────────────────────
+   7. MÓDULOS DE TECH - hover efectos sonoros + tooltip
+   ─────────────────────────────────────────────────────────── */
+document.querySelectorAll('.tech-module').forEach(m => {
+  m.addEventListener('mouseenter', () => AudioFX.hover());
+  m.addEventListener('click', () => {
+    AudioFX.click();
+    // Pequeña animación: brillo
+    m.style.boxShadow = '0 0 30px var(--primary-glow)';
+    setTimeout(() => { m.style.boxShadow = ''; }, 400);
+  });
+});
+
+document.querySelectorAll('.cta-btn, .mode-btn, .send-btn').forEach(b => {
+  b.addEventListener('click', () => AudioFX.click());
+});
+
+/* ───────────────────────────────────────────────────────────
+   8. TERMINAL INTERACTIVA
+   ─────────────────────────────────────────────────────────── */
+const termBody = document.getElementById('term-body');
+const termInput = document.getElementById('term-input');
+
+const termColor = {
+  base: 'color: #d0d8e0;',
+  prompt: 'color: var(--primary-glow); font-weight: 700;',
+  cyan: 'color: var(--primary-glow);',
+  amber: 'color: #ffd43b;',
+  red: 'color: #ff6b6b;',
+  green: 'color: #51cf66;',
+  dim: 'color: #8a96a8;'
+};
+
+function termPrint(html, type = '') {
+  const div = document.createElement('div');
+  div.className = 'term-line ' + type;
+  div.innerHTML = html;
+  termBody.appendChild(div);
+  termBody.scrollTop = termBody.scrollHeight;
+}
+
+function termPrintTyped(html, type = '', speed = 12) {
+  return new Promise((resolve) => {
+    const div = document.createElement('div');
+    div.className = 'term-line ' + type;
+    termBody.appendChild(div);
+    let i = 0;
+    function tick() {
+      if (i <= html.length) {
+        div.innerHTML = html.slice(0, i);
+        termBody.scrollTop = termBody.scrollHeight;
+        i++;
+        setTimeout(tick, speed);
+      } else { resolve(); }
+    }
+    tick();
+  });
+}
+
+// Comandos
+const COMMANDS = {
+  help: () => {
+    termPrint('Comandos disponibles:', 'info');
+    termPrint('  <span style="' + termColor.cyan + '">help</span>        — esta ayuda');
+    termPrint('  <span style="' + termColor.cyan + '">whoami</span>      — sobre Sergio');
+    termPrint('  <span style="' + termColor.cyan + '">skills</span>      — listado de habilidades');
+    termPrint('  <span style="' + termColor.cyan + '">experience</span>  — experiencia laboral');
+    termPrint('  <span style="' + termColor.cyan + '">education</span>   — formación académica');
+    termPrint('  <span style="' + termColor.cyan + '">contact</span>     — datos de contacto');
+    termPrint('  <span style="' + termColor.cyan + '">stack</span>       — stack tecnológico');
+    termPrint('  <span style="' + termColor.cyan + '">github</span>      — abre el repositorio del proyecto');
+    termPrint('  <span style="' + termColor.cyan + '">linkedin</span>    — abre el perfil de LinkedIn');
+    termPrint('  <span style="' + termColor.cyan + '">date</span>        — fecha y hora');
+    termPrint('  <span style="' + termColor.cyan + '">ping</span>        — diagnóstico de red');
+    termPrint('  <span style="' + termColor.cyan + '">matrix</span>      — modo matrix');
+    termPrint('  <span style="' + termColor.cyan + '">clear</span>       — limpia la consola');
+    termPrint('  <span style="' + termColor.cyan + '">sudo hire-me</span> — sorpresa 😉');
+  },
+  whoami: () => {
+    termPrint('SERGIO MARTÍN RODRÍGUEZ', 'success');
+    termPrint('Técnico Electromecánico × Full Stack Developer Junior');
+    termPrint('Villa Mercedes, San Luis, Argentina');
+    termPrint('Operador de Sala de Máquinas @ Minerva Foods (actual)');
+  },
+  skills: () => {
+    termPrint('[ INDUSTRIAL ]', 'info');
+    termPrint('  ▸ Mantenimiento electromecánico');
+    termPrint('  ▸ Sistemas frigoríficos NH₃');
+    termPrint('  ▸ Sistemas automatizados');
+    termPrint('  ▸ Soporte hardware/redes');
+    termPrint('[ DEVELOPMENT ]', 'info');
+    termPrint('  ▸ JavaScript / React / Redux');
+    termPrint('  ▸ Node.js / Express');
+    termPrint('  ▸ PostgreSQL / SQL');
+    termPrint('  ▸ HTML5 / CSS / Bootstrap');
+    termPrint('  ▸ Git / Scrum / Jira');
+    termPrint('[ SOFT_SKILLS ]', 'info');
+    termPrint('  ▸ Trabajo en equipo, adaptabilidad, comunicación clara');
+  },
+  experience: () => {
+    termPrint('┌── 2026 - actual ─── Minerva Foods', 'info');
+    termPrint('│   Operador Auxiliar · Sala de Máquinas (NH₃)');
+    termPrint('├── 2012 - 2023 ───── Mastellone Hnos.');
+    termPrint('│   Técnico Electromecánico · Almacén automatizado');
+    termPrint('└── 2001 - 2012 ───── I.S.I. Servicios Informáticos');
+    termPrint('    Técnico de soporte · HW/SW/Redes');
+  },
+  education: () => {
+    termPrint('▸ Técnico Electromecánico', 'info');
+    termPrint('  EPET N.º 15 Ing. Agustín Mercau · Villa Mercedes');
+    termPrint('▸ Full Stack Web Developer', 'info');
+    termPrint('  Henry Bootcamp · 800 hs · 2023');
+  },
+  contact: () => {
+    termPrint('email     : it.sergiorodriguez@gmail.com', 'success');
+    termPrint('telefono  : +54 9 2657 620824', 'success');
+    termPrint('linkedin  : linkedin.com/in/sergio-martin-rodriguez-pro', 'success');
+    termPrint('github    : github.com/TU_USUARIO_GITHUB', 'success');
+    termPrint('ubicacion : Villa Mercedes, San Luis, AR', 'success');
+  },
+  github: () => {
+    termPrint('Abriendo repositorio en GitHub...', 'info');
+    termPrint('▸ github.com/TU_USUARIO_GITHUB/sergio-martin-rodriguez.github.io', 'success');
+    setTimeout(() => window.open('https://github.com/TU_USUARIO_GITHUB/sergio-martin-rodriguez.github.io', '_blank'), 600);
+  },
+  linkedin: () => {
+    termPrint('Abriendo perfil de LinkedIn...', 'info');
+    termPrint('▸ linkedin.com/in/sergio-martin-rodriguez-pro', 'success');
+    setTimeout(() => window.open('https://linkedin.com/in/sergio-martin-rodriguez-pro', '_blank'), 600);
+  },
+  stack: () => {
+    termPrint('Frontend  : React, Redux, JS, HTML5, CSS, Bootstrap', 'success');
+    termPrint('Backend   : Node.js, Express', 'success');
+    termPrint('DataBase  : PostgreSQL', 'success');
+    termPrint('Tools     : Git, Jira, Slack, Scrum', 'success');
+    termPrint('Industrial: NH₃, automatismos, refrigeración, electromecánica', 'info');
+  },
+  date: () => {
+    termPrint(new Date().toString(), 'success');
+  },
+  ping: async () => {
+    const hosts = ['gateway.smr.local', 'api.endpoint', 'database.cluster', 'mq.frigorifico'];
+    for (const h of hosts) {
+      const ms = (Math.random() * 30 + 5).toFixed(1);
+      await termPrintTyped('PING ' + h + ' ▸ <span style="color:#51cf66">OK</span> ' + ms + 'ms', '', 8);
+    }
+    termPrint('— 4/4 paquetes recibidos · 0% pérdida —', 'success');
+  },
+  matrix: async () => {
+    termPrint('Inicializando matrix...', 'info');
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナ';
+    for (let i = 0; i < 8; i++) {
+      let line = '';
+      for (let j = 0; j < 60; j++) line += chars[Math.floor(Math.random() * chars.length)];
+      await termPrintTyped('<span style="color:#51cf66">' + line + '</span>', '', 5);
+    }
+    termPrint('Salida del modo matrix.', 'success');
+  },
+  clear: () => { termBody.innerHTML = ''; },
+  'sudo hire-me': () => {
+    termPrint('[sudo] verificando permisos...', 'info');
+    setTimeout(() => termPrint('Permiso concedido. ✓', 'success'), 400);
+    setTimeout(() => termPrint('Iniciando proceso de contratación...', 'info'), 900);
+    setTimeout(() => {
+      termPrint('═══════════════════════════════════', 'success');
+      termPrint('  ¡Excelente decisión!', 'success');
+      termPrint('  Contactá a Sergio:', 'success');
+      termPrint('  ▸ it.sergiorodriguez@gmail.com', 'success');
+      termPrint('═══════════════════════════════════', 'success');
+      AudioFX.success();
+    }, 1500);
+  }
+};
+
+const COMMAND_ALIASES = {
+  '?' : 'help',
+  'ls': 'help',
+  'who': 'whoami',
+  'cv': 'experience',
+  'about': 'whoami',
+  'tech': 'stack',
+  'cls': 'clear'
+};
+
+async function runCommand(raw) {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return;
+
+  // Mostrar el comando ingresado
+  termPrint('<span style="' + termColor.prompt + '">sergio@smr:~$</span> ' + raw, 'input');
+
+  // Resolver alias
+  const cmd = COMMAND_ALIASES[trimmed] || trimmed;
+
+  if (COMMANDS[cmd]) {
+    await COMMANDS[cmd]();
+  } else {
+    termPrint('Comando no reconocido: <span style="color:#ff6b6b">' + raw + '</span>', 'error');
+    termPrint('Probá <span style="' + termColor.cyan + '">help</span> para ver la lista.', 'dim');
+  }
+}
+
+// Mensaje de bienvenida
+async function termBoot() {
+  await termPrintTyped('SMR_SYSTEM v2.0 · sergio@smr-terminal', 'success', 12);
+  await termPrintTyped('Sesión iniciada. Acceso concedido.', 'info', 12);
+  await termPrintTyped('────────────────────────────────────────', 'dim', 4);
+  await termPrintTyped('Escribí <span style="color: var(--primary-glow)">help</span> para comenzar.', '', 12);
+}
+
+// Historial
+const cmdHistory = [];
+let histIdx = -1;
+
+termInput.addEventListener('keydown', async (e) => {
+  if (e.key === 'Enter') {
+    const v = termInput.value;
+    if (v.trim()) {
+      cmdHistory.push(v);
+      if (cmdHistory.length > 50) cmdHistory.shift();
+    }
+    histIdx = cmdHistory.length;
+    termInput.value = '';
+    AudioFX.click();
+    await runCommand(v);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (histIdx > 0) { histIdx--; termInput.value = cmdHistory[histIdx] || ''; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (histIdx < cmdHistory.length - 1) { histIdx++; termInput.value = cmdHistory[histIdx] || ''; }
+    else { histIdx = cmdHistory.length; termInput.value = ''; }
+  } else {
+    AudioFX.type();
+  }
+});
+
+// Click en cualquier parte de la terminal = focus al input
+document.querySelector('.terminal').addEventListener('click', () => termInput.focus());
+
+// Boot al cargar
+termBoot();
+
+/* ───────────────────────────────────────────────────────────
+   9. FORMULARIO DE CONTACTO - Animación de envío
+   ─────────────────────────────────────────────────────────── */
+const cf = document.getElementById('contact-form');
+const pipeAnim = document.getElementById('pipe-anim');
+const pipeConfirm = document.getElementById('pipe-confirm');
+
+cf.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('cf-name').value.trim();
+  const email = document.getElementById('cf-email').value.trim();
+  const msg = document.getElementById('cf-msg').value.trim();
+  if (!name || !email || !msg) {
+    pipeConfirm.textContent = '⚠ ERROR: Faltan campos requeridos';
+    pipeConfirm.style.color = '#ff6b6b';
+    pipeAnim.classList.add('active');
+    setTimeout(() => {
+      pipeAnim.classList.remove('active');
+      pipeConfirm.style.color = '';
+    }, 1800);
+    return;
+  }
+
+  AudioFX.click();
+  pipeConfirm.textContent = '▸ TRANSMITIENDO PAYLOAD...';
+  pipeAnim.classList.add('active');
+
+  setTimeout(() => {
+    pipeConfirm.textContent = '✓ MENSAJE ENVIADO · CANAL CERRADO';
+    AudioFX.success();
+  }, 2000);
+
+  setTimeout(() => {
+    pipeAnim.classList.remove('active');
+    cf.reset();
+  }, 3500);
+});
+
+/* ───────────────────────────────────────────────────────────
+   10. EASTER EGGS
+   ─────────────────────────────────────────────────────────── */
+const EGG_MESSAGES = [
+  { title: '[ EASTER_EGG_01 ]', text: '"La calidad nunca es un accidente; es siempre el resultado de un esfuerzo inteligente." — John Ruskin' },
+  { title: '[ EASTER_EGG_02 ]', text: 'Dato curioso: el amoníaco (NH₃) es uno de los refrigerantes más eficientes que existen, y se usa en plantas frigoríficas industriales desde hace más de 130 años.' },
+  { title: '[ EASTER_EGG_03 ]', text: 'Un buen técnico arregla la máquina. Un gran técnico evita que se rompa. Un excelente técnico la rediseña para que sea mejor.' },
+  { title: '[ EASTER_EGG_04 ]', text: 'console.log("Si encontraste esto, sos curioso. Esa es la mejor habilidad de un developer."); ✓' },
+  { title: '[ EASTER_EGG_05 ]', text: 'En 23 años de industria aprendí algo: la documentación es como el mantenimiento preventivo. Nadie la valora hasta que falla todo.' },
+  { title: '[ EASTER_EGG_06 ]', text: '> sudo apt install perseverancia\n> Instalando... ✓ \n> Recordatorio: el camino del aprendizaje continuo no termina nunca.' }
+];
+
+let eggIdx = 0;
+const eggModal = document.getElementById('egg-modal');
+const eggTitle = document.getElementById('egg-title');
+const eggText = document.getElementById('egg-text');
+const eggClose = document.getElementById('egg-close');
+
+document.getElementById('logo-easter').addEventListener('click', () => {
+  const e = EGG_MESSAGES[eggIdx % EGG_MESSAGES.length];
+  eggTitle.textContent = e.title;
+  eggText.textContent = e.text;
+  eggModal.classList.add('active');
+  AudioFX.success();
+  eggIdx++;
+});
+eggClose.addEventListener('click', () => {
+  eggModal.classList.remove('active');
+  AudioFX.click();
+});
+eggModal.addEventListener('click', (e) => {
+  if (e.target === eggModal) {
+    eggModal.classList.remove('active');
+  }
+});
+
+// Easter egg: Konami code
+const konami = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let konamiIdx = 0;
+document.addEventListener('keydown', (e) => {
+  if (e.key === konami[konamiIdx]) {
+    konamiIdx++;
+    if (konamiIdx === konami.length) {
+      konamiIdx = 0;
+      eggTitle.textContent = '[ KONAMI_CODE_DETECTED ]';
+      eggText.textContent = '🎮 ¡Reflejos de gamer detectados! Bonus point por explorar a fondo. Sergio aprueba.';
+      eggModal.classList.add('active');
+      AudioFX.success();
+    }
+  } else {
+    konamiIdx = 0;
+  }
+});
+
+/* ───────────────────────────────────────────────────────────
+   11. CONSOLE WELCOME (para devs curiosos que abran F12)
+   ─────────────────────────────────────────────────────────── */
+console.log('%c╔══════════════════════════════════════════╗', 'color:#00e5ff; font-family:monospace');
+console.log('%c║  SERGIO M. RODRÍGUEZ · PORTFOLIO v2.0    ║', 'color:#00e5ff; font-family:monospace; font-weight:bold');
+console.log('%c╚══════════════════════════════════════════╝', 'color:#00e5ff; font-family:monospace');
+console.log('%c¿Sos curioso? Ese es buen indicio. Probá la terminal interactiva en la página, o hacé clic en el engranaje del header. ', 'color:#8a96a8; font-style:italic');
+console.log('%c→ it.sergiorodriguez@gmail.com', 'color:#ffa726; font-weight:bold');
+
+</script>
+</body>
+</html>

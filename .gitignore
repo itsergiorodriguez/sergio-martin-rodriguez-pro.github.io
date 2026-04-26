@@ -1,0 +1,26 @@
+# Sistemas operativos
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Antigravity
+.antigravity/
+.agent/
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.bak
+
+# Node (por si en el futuro agregás build tools)
+node_modules/
+package-lock.json
